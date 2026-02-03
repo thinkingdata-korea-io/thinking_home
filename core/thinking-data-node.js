@@ -326,53 +326,48 @@ class ThinkingDataNode {
     }
 
     /**
-     * 테스트용 간단한 이벤트 전송 (디버깅용)
+     * API 엔드포인트 연결 확인 (실제 이벤트를 전송하지 않음)
      */
     async testConnection() {
         console.log('🧪 ThinkingData API 연결 테스트 시작...');
-        
+
         try {
-                    const testEvent = {
-            "#type": "track",
-            "#event_name": "test_connection",
-            "#time": new Date().toISOString().replace('T', ' ').slice(0, 23),
-            "#distinct_id": `test_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-            "properties": {
-                "test_property": "test_value",
-                "timestamp": new Date().toISOString()
-            }
-        };
+            const url = new URL(this.apiEndpoint);
+            const isHttps = url.protocol === 'https:';
+            const client = isHttps ? https : http;
 
-            const payload = [{
-                appid: this.appId,
-                data: testEvent
-                // debug: 1 // 디버그 모드 비활성화
-            }];
+            return new Promise((resolve) => {
+                const req = client.request({
+                    hostname: url.hostname,
+                    port: url.port || (isHttps ? 443 : 80),
+                    path: url.pathname,
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    timeout: 10000
+                }, (res) => {
+                    res.resume();
+                    console.log(`✅ 연결 테스트 성공 (HTTP ${res.statusCode})`);
+                    resolve(true);
+                });
 
-            console.log('🧪 테스트 이벤트:', JSON.stringify(payload, null, 2));
-            await this.sendRequest(payload);
-            console.log('✅ 연결 테스트 성공!');
-            return true;
+                req.on('error', (error) => {
+                    console.warn('⚠️ 연결 테스트 실패:', error.message);
+                    resolve(false);
+                });
+
+                req.on('timeout', () => {
+                    req.destroy();
+                    console.warn('⚠️ 연결 테스트 타임아웃');
+                    resolve(false);
+                });
+
+                // 빈 배열을 보내서 연결만 확인
+                req.write('[]');
+                req.end();
+            });
         } catch (error) {
-            console.error('❌ 연결 테스트 실패:', error.message);
-            
-            // 대체 엔드포인트로 재시도
-            console.log('🔄 대체 엔드포인트로 재시도...');
-            const originalEndpoint = this.apiEndpoint;
-            
-            // /sync_json 대신 /sync_data 시도
-            this.apiEndpoint = this.apiEndpoint.replace('/sync_json', '/sync_data');
-            console.log('🔄 새로운 엔드포인트:', this.apiEndpoint);
-            
-            try {
-                await this.sendRequest(payload);
-                console.log('✅ 대체 엔드포인트 연결 테스트 성공!');
-                return true;
-            } catch (retryError) {
-                console.error('❌ 대체 엔드포인트도 실패:', retryError.message);
-                this.apiEndpoint = originalEndpoint; // 원래 엔드포인트로 복원
-                return false;
-            }
+            console.warn('⚠️ 연결 테스트 실패:', error.message);
+            return false;
         }
     }
 }
