@@ -57,41 +57,43 @@ jobs:
     - name: 📊 Run Google Search Console data sync
       id: sync
       run: |
+        mkdir -p logs
         SYNC_TYPE="${{ github.event.inputs.sync_type || 'last-3-days' }}"
         FORCE_RUN="${{ github.event.inputs.force_run || 'false' }}"
-        
+        LOG_FILE="logs/sync-$(date +%Y%m%d-%H%M%S).log"
+
         echo "🔄 동기화 타입: $SYNC_TYPE"
         echo "🔧 강제 실행: $FORCE_RUN"
         echo "📅 실행 시간: $(date)"
         echo "🌍 시간대: $(date +%Z)"
         echo "🏢 Repository: ${{ github.repository }}"
-        
+
         # Google Search Console 데이터 수집 실행
         echo "📊 Google Search Console 데이터 수집 시작"
-        
+
         case $SYNC_TYPE in
           "yesterday")
             echo "📅 어제 데이터 수집 시작"
-            node gsc-collector.js --mode daily --days 1
+            node gsc-collector.js --mode daily --days 1 2>&1 | tee "$LOG_FILE"
             ;;
           "last-3-days")
             echo "📊 최근 3일치 데이터 수집 시작"
-            node gsc-collector.js --mode daily --days 3
+            node gsc-collector.js --mode daily --days 3 2>&1 | tee "$LOG_FILE"
             ;;
           "last-week")
             echo "📊 지난 주 데이터 수집 시작"
-            node gsc-collector.js --mode daily --days 7
+            node gsc-collector.js --mode daily --days 7 2>&1 | tee "$LOG_FILE"
             ;;
           "last-month")
             echo "📈 지난 달 데이터 수집 시작"
-            node gsc-collector.js --mode all --start-date $(date -d '30 days ago' +%Y-%m-%d) --end-date $(date -d 'yesterday' +%Y-%m-%d)
+            node gsc-collector.js --mode all --start-date $(date -d '30 days ago' +%Y-%m-%d) --end-date $(date -d 'yesterday' +%Y-%m-%d) 2>&1 | tee "$LOG_FILE"
             ;;
           *)
             echo "❌ 알 수 없는 동기화 타입: $SYNC_TYPE"
             exit 1
             ;;
         esac
-        
+
         echo "✅ Google Search Console 데이터 수집 완료"
         echo "sync_status=success" >> $GITHUB_OUTPUT
         
