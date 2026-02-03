@@ -8,9 +8,19 @@ import {
   maskName,
   addTETimeProperties,
   trackingLog,
+  trackEvent,
 } from "../core/utils.js";
 import { updateSessionActivity } from "../core/session-manager.js";
 import { trackFormSubmission } from "../user-attributes.js";
+
+// Webflow 폼의 data-name 속성으로 필드 값 가져오기
+function getFieldValueByDataName(form, dataNames) {
+  for (const name of dataNames) {
+    const field = form.querySelector(`[data-name="${name}"]`);
+    if (field && field.value) return field.value;
+  }
+  return "";
+}
 
 // 폼 제출/오류 추적 메인 함수
 export function initFormTracking() {
@@ -29,20 +39,25 @@ export function initFormTracking() {
 
     trackingLog("📝 폼 제출 감지:", form);
 
-    // 폼 데이터 수집 (개인정보 제외)
+    // 폼 데이터 수집 (개인정보 제외, data-name 속성 우선 사용)
     const formData = new FormData(form);
     const formFields = {};
 
-    // 개인정보가 아닌 필드만 수집
-    for (let [key, value] of formData.entries()) {
-      if (!isPersonalInfo(key)) {
-        formFields[key] = value;
+    // Webflow 폼은 data-name 속성으로 필드를 식별 (name="field"로 중복됨)
+    const allFields = form.querySelectorAll(
+      'input:not([type="hidden"]):not([type="submit"]), textarea, select'
+    );
+    allFields.forEach((field) => {
+      const fieldName =
+        field.getAttribute("data-name") || field.name || field.id;
+      if (fieldName && !isPersonalInfo(fieldName)) {
+        formFields[fieldName] = field.value;
       }
-    }
+    });
 
     // 개인정보 동의 체크박스 확인 (ThinkingData 폼 구조에 맞춤)
     const privacyCheckbox = form.querySelector(
-      'input[type="checkbox"][name*="privacy"], input[type="checkbox"][name*="agreement"], input[type="checkbox"][name*="동의"]'
+      'input[type="checkbox"][name*="privacy"], input[type="checkbox"][name*="agreement"], input[type="checkbox"][name*="동의"], input[type="checkbox"][data-name*="동의"], input[type="checkbox"][data-name*="개인정보"]'
     );
     const privacyAgreed = privacyCheckbox ? privacyCheckbox.checked : false;
 
@@ -50,18 +65,21 @@ export function initFormTracking() {
     const formType = getFormType(form);
     const formInfo = getThinkingDataFormInfo(form);
 
-    // 실제 폼 값들 수집 (마스킹 전)
+    // 실제 폼 값들 수집 (data-name 속성 우선, FormData 폴백)
     const rawName =
+      getFieldValueByDataName(form, ["이름", "Name", "name"]) ||
       formData.get("name") ||
       formData.get("이름") ||
       formData.get("gameplus_Name") ||
       "";
     const rawEmail =
+      getFieldValueByDataName(form, ["이메일", "회사 이메일", "Email", "email"]) ||
       formData.get("email") ||
       formData.get("이메일") ||
       formData.get("gameplus_email") ||
       "";
     const rawPhone =
+      getFieldValueByDataName(form, ["연락처", "휴대폰 번호", "Phone", "phone"]) ||
       formData.get("phone") ||
       formData.get("연락처") ||
       formData.get("gameplus_phone") ||
@@ -70,7 +88,7 @@ export function initFormTracking() {
     const formSubmitData = {
       form_id: form.id || form.name || "unknown_form",
       form_name: getFormName(form),
-      form_type: getFormType(form), // 'demo_request', 'contact_inquiry', 'gameplus', 'other'
+      form_type: formType,
       form_url: window.location.href,
       form_page_title: document.title,
       form_fields_submitted_info: {
@@ -78,18 +96,25 @@ export function initFormTracking() {
         email: rawEmail ? maskEmail(rawEmail) : "",
         phone: rawPhone ? maskPhone(rawPhone) : "",
         company_name:
+          getFieldValueByDataName(form, ["회사명", "Company", "company"]) ||
           formData.get("company") ||
           formData.get("회사명") ||
           formData.get("gameplus_company") ||
           "",
         inquiry_source:
-          formData.get("source") || formData.get("알게된경로") || "",
+          getFieldValueByDataName(form, [
+            "씽킹데이터를 어떻게 아셨나요?",
+            "알게된경로",
+          ]) ||
+          formData.get("source") ||
+          formData.get("알게된경로") ||
+          "",
         message_length: (
+          getFieldValueByDataName(form, ["문의사항", "Message", "message"]) ||
           formData.get("message") ||
           formData.get("문의사항") ||
           ""
         ).length,
-        // 원본 값 있는지 여부 추가 (디버깅용)
         has_name: !!rawName,
         has_email: !!rawEmail,
         has_phone: !!rawPhone,
@@ -158,7 +183,7 @@ export function initFormTracking() {
         form_type: getFormType(form),
         form_url: window.location.href,
         error_type: "validation_error",
-        field_name: event.target.name || event.target.id,
+        field_name: event.target.getAttribute("data-name") || event.target.name || event.target.id,
         field_type: event.target.type,
         error_message: event.target.validationMessage,
         error_time: new Date().toISOString().replace("T", " ").slice(0, 23),
@@ -214,7 +239,8 @@ function trackFieldInteraction(field, triggerType = "input") {
   const form = field.closest("form");
   if (!form || !isThinkingDataForm(form)) return;
 
-  const fieldKey = `${form.id || "form"}_${field.name || field.id || "field"}`;
+  const fieldDataName = field.getAttribute("data-name") || field.name || field.id || "field";
+  const fieldKey = `${form.id || "form"}_${fieldDataName}`;
   const currentLength = field.value ? field.value.length : 0;
   const hasValue = !!field.value;
 
@@ -277,10 +303,11 @@ function trackFieldInteraction(field, triggerType = "input") {
 
 function sendFieldInteractionEvent(field, fieldKey, state, triggerType) {
   const form = field.closest("form");
+  const fieldIdentifier = field.getAttribute("data-name") || field.name || field.id;
   const fieldData = {
     form_name: getFormName(form),
     form_type: getFormType(form),
-    field_name: field.name || field.id,
+    field_name: fieldIdentifier,
     field_type: field.type,
     field_value_length: state.length,
     field_has_value: state.hasValue,
@@ -292,7 +319,7 @@ function sendFieldInteractionEvent(field, fieldKey, state, triggerType) {
   // 개인정보 필드가 아닌 경우에만 값 미리보기 전송 (설정에 따라)
   if (
     fieldTrackingConfig.enablePreview &&
-    !isPersonalInfo(field.name || field.id)
+    !isPersonalInfo(fieldIdentifier)
   ) {
     fieldData.field_value_preview = field.value
       ? field.value.substring(0, 10) + "..."
@@ -357,18 +384,22 @@ function isThinkingDataForm(form) {
     url.includes("/form-demo") ||
     url.includes("/form-ask") ||
     url.includes("/form-gameplus") ||
+    url.includes("/data-voucher") ||
     form.id?.includes("demo") ||
     form.id?.includes("contact") ||
     form.id?.includes("ask") ||
     form.id?.includes("gameplus") ||
+    form.id?.includes("voucher") ||
     form.name?.includes("demo") ||
     form.name?.includes("contact") ||
     form.name?.includes("ask") ||
     form.name?.includes("gameplus") ||
+    form.name?.includes("voucher") ||
     (form.action &&
       (form.action.includes("form-demo") ||
         form.action.includes("form-ask") ||
-        form.action.includes("form-gameplus")))
+        form.action.includes("form-gameplus") ||
+        form.action.includes("data-voucher")))
   );
 }
 
@@ -388,6 +419,7 @@ function isPersonalInfo(fieldName) {
     "이름",
     "비밀번호",
     "생년월일",
+    "휴대폰",
     "tel",
     "mobile",
     "contact",
@@ -404,8 +436,12 @@ function getFormName(form) {
   if (window.location.href.includes("/form-demo")) return "데모 신청 폼";
   if (window.location.href.includes("/form-ask")) return "문의하기 폼";
   if (window.location.href.includes("/form-gameplus")) return "게임더하기 폼";
+  if (window.location.href.includes("/data-voucher"))
+    return "데이터바우처 신청 폼";
   if (form.id?.includes("gameplus") || form.name?.includes("gameplus"))
     return "게임더하기 폼";
+  if (form.id?.includes("voucher") || form.name?.includes("voucher"))
+    return "데이터바우처 신청 폼";
   return (
     form.title ||
     form.getAttribute("data-form-name") ||
@@ -431,6 +467,12 @@ function getFormType(form) {
     form.name?.includes("gameplus")
   )
     return "gameplus";
+  if (
+    url.includes("/data-voucher") ||
+    form.id?.includes("voucher") ||
+    form.name?.includes("voucher")
+  )
+    return "data_voucher";
   return "other";
 }
 
@@ -473,12 +515,123 @@ function getThinkingDataFormInfo(form) {
   } else if (formType === "contact_inquiry") {
     formInfo.contact_inquiry_form = true;
     formInfo.form_purpose = "문의하기";
+  } else if (formType === "data_voucher") {
+    formInfo.data_voucher_form = true;
+    formInfo.form_purpose = "데이터바우처 신청";
   }
 
   return formInfo;
 }
 
 // 마스킹 함수들은 utils.js에서 가져와서 사용
+
+// 외부 iframe 폼 추적 (salesmap.kr 등 cross-origin iframe)
+function initIframeFormTracking() {
+  const url = window.location.href;
+  if (!url.includes("/data-voucher")) return;
+
+  trackingLog("📝 iframe 폼 추적 초기화 (data-voucher 페이지)");
+
+  // 1. salesmap.kr iframe의 postMessage 수신 리스너
+  window.addEventListener("message", function (event) {
+    // salesmap.kr에서 오는 메시지만 처리
+    if (!event.origin.includes("salesmap.kr")) return;
+
+    trackingLog("📝 salesmap iframe 메시지 수신:", event.data);
+
+    const messageData =
+      typeof event.data === "string"
+        ? (() => {
+            try {
+              return JSON.parse(event.data);
+            } catch {
+              return { raw: event.data };
+            }
+          })()
+        : event.data;
+
+    const iframeSubmitData = {
+      form_id: "salesmap_data_voucher",
+      form_name: "데이터바우처 신청 폼",
+      form_type: "data_voucher",
+      form_url: url,
+      form_page_title: document.title,
+      form_source: "salesmap_iframe",
+      iframe_message_type: messageData.type || messageData.event || "unknown",
+      submission_status: "iframe_message_received",
+      form_submission_time: new Date()
+        .toISOString()
+        .replace("T", " ")
+        .slice(0, 23),
+    };
+
+    const dataWithTETime = addTETimeProperties(iframeSubmitData);
+    trackEvent("te_form_submit", dataWithTETime);
+    trackFormSubmission();
+    trackingLog("📝 iframe 폼 제출 이벤트 전송 (postMessage)");
+  });
+
+  // 2. 폼 섹션 가시성 추적 (IntersectionObserver)
+  const formSection = document.querySelector("#data-voucher-form");
+  if (formSection) {
+    let formViewed = false;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          if (entry.isIntersecting && !formViewed) {
+            formViewed = true;
+            const viewData = {
+              form_name: "데이터바우처 신청 폼",
+              form_type: "data_voucher",
+              form_url: url,
+              form_source: "salesmap_iframe",
+              form_section_visible: true,
+              view_time: new Date()
+                .toISOString()
+                .replace("T", " ")
+                .slice(0, 23),
+            };
+            const viewDataWithTETime = addTETimeProperties(viewData);
+            trackEvent("te_form_view", viewDataWithTETime);
+            trackingLog("📝 데이터바우처 폼 섹션 노출 추적");
+          }
+        });
+      },
+      { threshold: 0.3 }
+    );
+    observer.observe(formSection);
+  }
+
+  // 3. CTA 버튼 클릭 추적 (폼으로 스크롤하는 버튼)
+  const ctaLinks = document.querySelectorAll(
+    'a[href="#data-voucher-form"], a[href*="data-voucher-form"]'
+  );
+  ctaLinks.forEach((link) => {
+    link.addEventListener("click", function () {
+      const ctaData = {
+        form_name: "데이터바우처 신청 폼",
+        form_type: "data_voucher",
+        form_url: url,
+        cta_text: link.textContent.trim(),
+        cta_action: "scroll_to_form",
+        click_time: new Date()
+          .toISOString()
+          .replace("T", " ")
+          .slice(0, 23),
+      };
+      const ctaDataWithTETime = addTETimeProperties(ctaData);
+      trackEvent("te_form_cta_click", ctaDataWithTETime);
+      trackingLog("📝 데이터바우처 폼 CTA 클릭 추적:", link.textContent.trim());
+    });
+  });
+}
+
+// iframe 폼 추적 초기화 (DOM 로드 후)
+if (document.readyState === "loading") {
+  document.addEventListener("DOMContentLoaded", initIframeFormTracking);
+} else {
+  initIframeFormTracking();
+}
 
 // 디버깅용 함수
 function debugFormTracking() {

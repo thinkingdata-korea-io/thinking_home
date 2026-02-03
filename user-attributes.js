@@ -64,7 +64,8 @@ class UserAttributeTracker {
             '/solution': 'solution',
             '/feature': 'feature',
             '/form-demo': 'demo_form',
-            '/form-ask': 'contact_form'
+            '/form-ask': 'contact_form',
+            '/data-voucher-2026': 'data_voucher'
         };
         
         // ThinkingData 홈페이지 카테고리 매핑
@@ -511,9 +512,15 @@ class UserAttributeTracker {
         }
         
         // 특정 페이지 타입별 추가 정보 (한 번만 설정)
-        if (path.includes('/form-') && !this.attributes.visited_conversion_page) {
+        if ((path.includes('/form-') || path.includes('/data-voucher')) && !this.attributes.visited_conversion_page) {
             updates.visited_conversion_page = true;
-            updates.conversion_page_type = path.includes('demo') ? 'demo_request' : 'contact_inquiry';
+            if (path.includes('demo')) {
+                updates.conversion_page_type = 'demo_request';
+            } else if (path.includes('/data-voucher')) {
+                updates.conversion_page_type = 'data_voucher';
+            } else {
+                updates.conversion_page_type = 'contact_inquiry';
+            }
         }
         
         if (path.includes('/solution/') && !this.attributes.visited_solution_page) {
@@ -577,7 +584,7 @@ class UserAttributeTracker {
         if (path.includes('/blog') || path.includes('/user-case')) return 'content';
         if (path.includes('/company') || path.includes('/culture') || path.includes('/news')) return 'company';
         if (path.includes('/solution') || path.includes('/feature')) return 'product';
-        if (path.includes('/form-')) return 'conversion';
+        if (path.includes('/form-') || path.includes('/data-voucher')) return 'conversion';
         
         return 'other';
     }
