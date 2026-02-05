@@ -139,37 +139,23 @@ export function initFormTracking() {
     // 🚀 유저 속성에 폼 제출 추적
     trackFormSubmission();
 
-    // 폼 제출 결과 추적 (AJAX 요청인 경우)
+    // 폼 제출 결과 확인 (로그만 기록, 중복 te_form_submit 방지)
     setTimeout(() => {
       const submitButton = form.querySelector(
         'button[type="submit"], input[type="submit"]'
       );
       if (submitButton && submitButton.disabled) {
-        // 성공으로 가정
-        const successData = {
-          ...formSubmitData,
-          submission_status: "success",
-        };
-        trackEvent("te_form_submit", successData);
-        trackingLog("📝 폼 제출 성공 이벤트 전송");
+        trackingLog("📝 폼 제출 성공 확인 (버튼 비활성화 감지)");
       }
     }, 1000);
 
-    // 폼 제출 성공 메시지 감지 (ThinkingData 폼 구조에 맞춤)
+    // 폼 제출 성공 메시지 감지 (로그만 기록, 중복 te_form_submit 방지)
     setTimeout(() => {
       const successMessage = document.querySelector(
         ".w-form-done, .success-message, [data-success-message]"
       );
       if (successMessage && successMessage.style.display !== "none") {
-        if (window.te && typeof window.te.track === "function") {
-          const finalSuccessData = {
-            ...formSubmitData,
-            submission_status: "success",
-            success_message_detected: true,
-          };
-          window.te.track("te_form_submit", finalSuccessData);
-          trackingLog("�� 폼 제출 성공 메시지 감지");
-        }
+        trackingLog("📝 폼 제출 성공 메시지 감지 (DOM 확인)");
       }
     }, 2000);
   }
@@ -530,14 +516,45 @@ function initIframeFormTracking() {
   const url = window.location.href;
   if (!url.includes("/data-voucher")) return;
 
-  trackingLog("📝 iframe 폼 추적 초기화 (data-voucher 페이지)");
+  trackingLog("📝 SalesMap 폼 추적 초기화 (data-voucher 페이지)");
 
-  // 1. salesmap.kr iframe의 postMessage 수신 리스너
+  // 중복 방지 플래그 (페이지당 1회만 te_form_submit 발생)
+  let salesMapFormSubmitTracked = false;
+
+  function trackSalesMapFormSubmit(detectionMethod, extraData = {}) {
+    if (salesMapFormSubmitTracked) {
+      trackingLog("📝 SalesMap 폼 제출 이미 추적됨 (중복 방지)");
+      return;
+    }
+    salesMapFormSubmitTracked = true;
+
+    const submitData = {
+      form_id: "salesmap_data_voucher",
+      form_name: "데이터바우처 도입 문의",
+      form_type: "data_voucher",
+      form_url: url,
+      form_page_title: document.title,
+      form_source: "salesmap",
+      detection_method: detectionMethod,
+      submission_status: "success",
+      form_submission_time: new Date()
+        .toISOString()
+        .replace("T", " ")
+        .slice(0, 23),
+      ...extraData,
+    };
+
+    const dataWithTETime = addTETimeProperties(submitData);
+    trackEvent("te_form_submit", dataWithTETime);
+    trackFormSubmission();
+    trackingLog("📝 SalesMap 폼 제출 이벤트 전송:", detectionMethod);
+  }
+
+  // 1. salesmap.kr postMessage 리스너 (제출 관련 메시지만 필터링)
   window.addEventListener("message", function (event) {
-    // salesmap.kr에서 오는 메시지만 처리
     if (!event.origin.includes("salesmap.kr")) return;
 
-    trackingLog("📝 salesmap iframe 메시지 수신:", event.data);
+    trackingLog("📝 salesmap 메시지 수신:", event.data);
 
     const messageData =
       typeof event.data === "string"
@@ -545,33 +562,115 @@ function initIframeFormTracking() {
             try {
               return JSON.parse(event.data);
             } catch {
-              return { raw: event.data };
+              return null;
             }
           })()
         : event.data;
 
-    const iframeSubmitData = {
-      form_id: "salesmap_data_voucher",
-      form_name: "데이터바우처 신청 폼",
-      form_type: "data_voucher",
-      form_url: url,
-      form_page_title: document.title,
-      form_source: "salesmap_iframe",
-      iframe_message_type: messageData.type || messageData.event || "unknown",
-      submission_status: "iframe_message_received",
-      form_submission_time: new Date()
-        .toISOString()
-        .replace("T", " ")
-        .slice(0, 23),
-    };
+    if (!messageData) return;
 
-    const dataWithTETime = addTETimeProperties(iframeSubmitData);
-    trackEvent("te_form_submit", dataWithTETime);
-    trackFormSubmission();
-    trackingLog("📝 iframe 폼 제출 이벤트 전송 (postMessage)");
+    // 메시지 내용을 문자열로 변환하여 제출 성공 관련 키워드 확인
+    const msgStr = JSON.stringify(messageData).toLowerCase();
+    const messageType = String(
+      messageData.type || messageData.event || messageData.action || ""
+    ).toLowerCase();
+
+    // 실패/오류 관련 키워드가 포함되면 제출 성공이 아님
+    const isError =
+      msgStr.includes("error") ||
+      msgStr.includes("fail") ||
+      msgStr.includes("invalid") ||
+      msgStr.includes("validation") ||
+      msgStr.includes("required");
+
+    // 제출 성공 관련 키워드 (submit 단독은 너무 광범위하므로 제외)
+    const isSuccess =
+      !isError &&
+      (messageType.includes("submitted") ||
+        messageType.includes("success") ||
+        messageType.includes("complete") ||
+        messageType.includes("conversion") ||
+        msgStr.includes("감사") ||
+        msgStr.includes("완료"));
+
+    if (isSuccess) {
+      trackSalesMapFormSubmit("postmessage", {
+        iframe_message_type: messageType || "unknown",
+      });
+    } else {
+      trackingLog(
+        "📝 salesmap 비제출 메시지 (무시):",
+        messageType || typeof event.data
+      );
+    }
   });
 
-  // 2. 폼 섹션 가시성 추적 (IntersectionObserver)
+  // 2. SalesMap 폼 DOM 변화 감지 (팝업 폼 → 감사 페이지 전환)
+  function watchForFormCompletion() {
+    // iframe 방식: iframe load 이벤트로 페이지 전환 감지
+    const salesMapIframe = document.querySelector('iframe[src*="salesmap"]');
+    if (salesMapIframe) {
+      let iframeLoadCount = 0;
+      salesMapIframe.addEventListener("load", function () {
+        iframeLoadCount++;
+        // 최초 로드(1회) 이후의 로드는 폼 제출 후 감사 페이지 전환
+        if (iframeLoadCount > 1) {
+          trackSalesMapFormSubmit("iframe_navigation");
+        }
+      });
+      trackingLog("📝 SalesMap iframe load 이벤트 감시 설정");
+    }
+
+    // 직접 임베딩 방식: MutationObserver로 감사 메시지 전환 감지
+    const salesMapLink = document.querySelector('a[href*="salesmap.kr"]');
+    if (salesMapLink) {
+      const formContainer =
+        salesMapLink.closest('[class*="shadow"]') ||
+        salesMapLink.closest('[style*="width: 542px"]') ||
+        salesMapLink.parentElement?.parentElement;
+
+      if (formContainer) {
+        const mutationObserver = new MutationObserver(() => {
+          if (salesMapFormSubmitTracked) {
+            mutationObserver.disconnect();
+            return;
+          }
+
+          const containerText = formContainer.textContent || "";
+          const hasThankYou =
+            containerText.includes("감사합니다") &&
+            containerText.includes("완료");
+          const hasFormInputs = formContainer.querySelector(
+            'input:not([type="hidden"]):not([type="radio"]), textarea'
+          );
+
+          // 감사 메시지가 있고 입력 필드가 사라진 경우 = 폼 제출 성공
+          if (hasThankYou && !hasFormInputs) {
+            mutationObserver.disconnect();
+            trackSalesMapFormSubmit("dom_mutation");
+          }
+        });
+
+        mutationObserver.observe(formContainer, {
+          childList: true,
+          subtree: true,
+          characterData: true,
+        });
+        trackingLog("📝 SalesMap 폼 컨테이너 MutationObserver 설정 완료");
+      }
+    }
+  }
+
+  // DOM 로드 후 감시 시작 (SalesMap 위젯 로드 대기)
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", () =>
+      setTimeout(watchForFormCompletion, 1000)
+    );
+  } else {
+    setTimeout(watchForFormCompletion, 1000);
+  }
+
+  // 3. 폼 섹션 가시성 추적 (IntersectionObserver)
   const formSection = document.querySelector("#data-voucher-form");
   if (formSection) {
     let formViewed = false;
@@ -581,10 +680,10 @@ function initIframeFormTracking() {
           if (entry.isIntersecting && !formViewed) {
             formViewed = true;
             const viewData = {
-              form_name: "데이터바우처 신청 폼",
+              form_name: "데이터바우처 도입 문의",
               form_type: "data_voucher",
               form_url: url,
-              form_source: "salesmap_iframe",
+              form_source: "salesmap",
               form_section_visible: true,
               view_time: new Date()
                 .toISOString()
@@ -602,14 +701,14 @@ function initIframeFormTracking() {
     observer.observe(formSection);
   }
 
-  // 3. CTA 버튼 클릭 추적 (폼으로 스크롤하는 버튼)
+  // 4. CTA 버튼 클릭 추적 (폼으로 스크롤하는 버튼)
   const ctaLinks = document.querySelectorAll(
     'a[href="#data-voucher-form"], a[href*="data-voucher-form"]'
   );
   ctaLinks.forEach((link) => {
     link.addEventListener("click", function () {
       const ctaData = {
-        form_name: "데이터바우처 신청 폼",
+        form_name: "데이터바우처 도입 문의",
         form_type: "data_voucher",
         form_url: url,
         cta_text: link.textContent.trim(),
