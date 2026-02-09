@@ -363,35 +363,9 @@ document.addEventListener("focusout", function (event) {
 
 trackingLog("✅ 폼 추적 초기화 완료");
 
-// ThinkingData 폼인지 확인
+// 추적 대상 폼인지 확인 (모든 폼 자동 추적, data-no-track으로 제외 가능)
 function isThinkingDataForm(form) {
-  const url = window.location.href;
-  return (
-    url.includes("/form-demo") ||
-    url.includes("/form-ask") ||
-    url.includes("/form-gameplus") ||
-    url.includes("/data-voucher") ||
-    url.includes("/blog") ||
-    form.id?.includes("demo") ||
-    form.id?.includes("contact") ||
-    form.id?.includes("ask") ||
-    form.id?.includes("gameplus") ||
-    form.id?.includes("voucher") ||
-    form.id?.includes("newsletter") ||
-    form.id?.includes("Newsletter") ||
-    form.name?.includes("demo") ||
-    form.name?.includes("contact") ||
-    form.name?.includes("ask") ||
-    form.name?.includes("gameplus") ||
-    form.name?.includes("voucher") ||
-    form.name?.includes("newsletter") ||
-    form.name?.includes("Newsletter") ||
-    (form.action &&
-      (form.action.includes("form-demo") ||
-        form.action.includes("form-ask") ||
-        form.action.includes("form-gameplus") ||
-        form.action.includes("data-voucher")))
-  );
+  return !form.hasAttribute("data-no-track");
 }
 
 // 개인정보 필드 판단 (ThinkingData 폼 구조에 맞춤)
@@ -440,12 +414,21 @@ function getFormName(form) {
     form.name?.includes("Newsletter")
   )
     return "뉴스레터 구독 폼";
-  return (
+  // 폴백: 폼 속성 → 주변 heading → URL 경로에서 자동 추론
+  const fallbackName =
     form.title ||
     form.getAttribute("data-form-name") ||
-    form.querySelector("h1,h2")?.textContent?.trim() ||
-    "알 수 없는 폼"
-  );
+    form.getAttribute("data-name") ||
+    form.id ||
+    form.name ||
+    form.querySelector("h1,h2,h3")?.textContent?.trim() ||
+    "";
+
+  if (fallbackName) return fallbackName;
+
+  // URL 경로에서 추론 (예: /contact-us → "contact-us 폼")
+  const pathSegment = window.location.pathname.split("/").filter(Boolean).pop();
+  return pathSegment ? `${pathSegment} 폼` : "자동 감지 폼";
 }
 
 // ThinkingData 공식 폼 타입 구분 (실제 URL 구조 기반)
@@ -478,7 +461,18 @@ function getFormType(form) {
     form.name?.includes("Newsletter")
   )
     return "newsletter";
-  return "other";
+  // 폴백: 폼 속성 → URL 경로에서 자동 추론
+  const formIdentifier = form.id || form.name || form.getAttribute("data-name") || "";
+  if (formIdentifier) {
+    return formIdentifier.toLowerCase().replace(/[^a-z0-9]+/g, "_");
+  }
+
+  const pathSegment = window.location.pathname.split("/").filter(Boolean).pop() || "";
+  if (pathSegment) {
+    return pathSegment.replace(/[^a-zA-Z0-9]+/g, "_");
+  }
+
+  return "auto_detected";
 }
 
 // ThinkingData 폼 상세 정보 수집
