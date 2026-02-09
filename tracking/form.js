@@ -371,16 +371,21 @@ function isThinkingDataForm(form) {
     url.includes("/form-ask") ||
     url.includes("/form-gameplus") ||
     url.includes("/data-voucher") ||
+    url.includes("/blog") ||
     form.id?.includes("demo") ||
     form.id?.includes("contact") ||
     form.id?.includes("ask") ||
     form.id?.includes("gameplus") ||
     form.id?.includes("voucher") ||
+    form.id?.includes("newsletter") ||
+    form.id?.includes("Newsletter") ||
     form.name?.includes("demo") ||
     form.name?.includes("contact") ||
     form.name?.includes("ask") ||
     form.name?.includes("gameplus") ||
     form.name?.includes("voucher") ||
+    form.name?.includes("newsletter") ||
+    form.name?.includes("Newsletter") ||
     (form.action &&
       (form.action.includes("form-demo") ||
         form.action.includes("form-ask") ||
@@ -423,11 +428,18 @@ function getFormName(form) {
   if (window.location.href.includes("/form-ask")) return "문의하기 폼";
   if (window.location.href.includes("/form-gameplus")) return "게임더하기 폼";
   if (window.location.href.includes("/data-voucher"))
-    return "데이터바우처 신청 폼";
+    return "데이터바우처 도입 문의";
   if (form.id?.includes("gameplus") || form.name?.includes("gameplus"))
     return "게임더하기 폼";
   if (form.id?.includes("voucher") || form.name?.includes("voucher"))
-    return "데이터바우처 신청 폼";
+    return "데이터바우처 도입 문의";
+  if (
+    form.id?.includes("newsletter") ||
+    form.id?.includes("Newsletter") ||
+    form.name?.includes("newsletter") ||
+    form.name?.includes("Newsletter")
+  )
+    return "뉴스레터 구독 폼";
   return (
     form.title ||
     form.getAttribute("data-form-name") ||
@@ -459,6 +471,13 @@ function getFormType(form) {
     form.name?.includes("voucher")
   )
     return "data_voucher";
+  if (
+    form.id?.includes("newsletter") ||
+    form.id?.includes("Newsletter") ||
+    form.name?.includes("newsletter") ||
+    form.name?.includes("Newsletter")
+  )
+    return "newsletter";
   return "other";
 }
 
@@ -503,7 +522,10 @@ function getThinkingDataFormInfo(form) {
     formInfo.form_purpose = "문의하기";
   } else if (formType === "data_voucher") {
     formInfo.data_voucher_form = true;
-    formInfo.form_purpose = "데이터바우처 신청";
+    formInfo.form_purpose = "데이터바우처 도입 문의";
+  } else if (formType === "newsletter") {
+    formInfo.newsletter_form = true;
+    formInfo.form_purpose = "뉴스레터 구독";
   }
 
   return formInfo;
