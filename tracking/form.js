@@ -22,8 +22,13 @@ function getFieldValueByDataName(form, dataNames) {
   return "";
 }
 
+let formTrackingInitialized = false;
+
 // 폼 제출/오류 추적 메인 함수
 export function initFormTracking() {
+  if (formTrackingInitialized) return;
+  formTrackingInitialized = true;
+
   trackingLog("📝 폼 추적 초기화 시작...");
 
   // SDK 로드 체크

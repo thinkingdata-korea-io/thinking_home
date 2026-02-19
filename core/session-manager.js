@@ -465,6 +465,8 @@ function generateSessionId() {
 
 // 캐시된 값들 (성능 최적화)
 let cachedCapabilities = null;
+let lastCapabilitiesUpdate = 0;
+const CAPABILITIES_CACHE_TIME = 300000; // 5분
 let cachedNetworkInfo = null;
 let lastNetworkInfoUpdate = 0;
 const NETWORK_INFO_CACHE_TIME = 30000; // 30초
@@ -498,10 +500,12 @@ function getViewportInfo() {
  * 브라우저 기능 지원 체크 (캐싱)
  */
 function getBrowserCapabilities() {
-  if (cachedCapabilities) {
+  const now = Date.now();
+  if (cachedCapabilities && (now - lastCapabilitiesUpdate) < CAPABILITIES_CACHE_TIME) {
     return cachedCapabilities;
   }
 
+  lastCapabilitiesUpdate = now;
   cachedCapabilities = {
     local_storage_enabled: (() => {
       try {

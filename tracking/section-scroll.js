@@ -2,6 +2,7 @@
 // @brief: 각 section(id)별로 0/25/50/75/100% 스크롤 도달 시 ThinkingData 이벤트 전송
 
 import config from '../config.js';
+import { trackingLog } from '../core/utils.js';
 
 const SECTION_THRESHOLDS = [0, 25, 50, 75, 100];
 const DEBOUNCE_TIME = 100; // ms
@@ -51,9 +52,7 @@ export function initSectionScrollTracking() {
               page_name: document.title,
               page_url: window.location.href
             };
-            if (config.debug && config.debug.showConsoleLogs) {
-              console.log('[DEBUG] section_scroll_depth fired', eventData);
-            }
+            trackingLog('[DEBUG] section_scroll_depth fired', eventData);
             window.te.track('section_scroll_depth', eventData);
           }
         }
