@@ -192,14 +192,3 @@ function trackScrollDepth() {
     });
   }
 
-  export function trackScroll() {
-    window.addEventListener('scroll', () => {
-      const scrollPercent = Math.round(
-        (window.scrollY + window.innerHeight) / document.body.scrollHeight * 100
-      );
-      if (scrollPercent >= 90) {
-        window.thinkingdata.track('scroll_depth', { percent: scrollPercent });
-      }
-    });
-    trackingLog('✅ 스크롤 트래킹 활성화');
-  }

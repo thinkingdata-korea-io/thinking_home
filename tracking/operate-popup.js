@@ -19,10 +19,6 @@ const POPUP_TYPES = {
   SLIDE: 'slide'
 };
 
-const STORAGE_KEY = 'te_operate_popup_history';
-const DEFAULT_DISPLAY_LIMIT = 1; // 기본 1회 노출
-const DEFAULT_LIMIT_PERIOD = 24 * 60 * 60 * 1000; // 24시간
-
 // 기본 디자인 설정
 const DEFAULT_STYLE = {
   maxWidth: '480px',
@@ -331,64 +327,6 @@ function injectStyles() {
 // ============================================
 
 /**
- * 팝업 노출 이력 가져오기
- */
-function getPopupHistory() {
-  try {
-    const data = localStorage.getItem(STORAGE_KEY);
-    return data ? JSON.parse(data) : {};
-  } catch (e) {
-    return {};
-  }
-}
-
-/**
- * 팝업 노출 이력 저장
- */
-function savePopupHistory(taskId) {
-  try {
-    const history = getPopupHistory();
-    if (!history[taskId]) {
-      history[taskId] = { count: 0, timestamps: [] };
-    }
-    history[taskId].count++;
-    history[taskId].timestamps.push(Date.now());
-
-    // 최근 100개만 유지
-    if (history[taskId].timestamps.length > 100) {
-      history[taskId].timestamps = history[taskId].timestamps.slice(-100);
-    }
-
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(history));
-  } catch (e) {
-    console.warn('팝업 이력 저장 실패:', e);
-  }
-}
-
-/**
- * 팝업 표시 가능 여부 확인 (빈도 제한)
- */
-function canShowPopup(taskId, options = {}) {
-  const {
-    maxDisplayCount = DEFAULT_DISPLAY_LIMIT,
-    limitPeriod = DEFAULT_LIMIT_PERIOD
-  } = options;
-
-  const history = getPopupHistory();
-  const taskHistory = history[taskId];
-
-  if (!taskHistory) return true;
-
-  // 기간 내 노출 횟수 계산
-  const now = Date.now();
-  const recentCount = taskHistory.timestamps.filter(
-    ts => now - ts < limitPeriod
-  ).length;
-
-  return recentCount < maxDisplayCount;
-}
-
-/**
  * HTML 이스케이프
  */
 function escapeHtml(text) {
@@ -396,6 +334,20 @@ function escapeHtml(text) {
   const div = document.createElement('div');
   div.textContent = text;
   return div.innerHTML;
+}
+
+/**
+ * URL 프로토콜 검증 (javascript:, data: 등 XSS 방지)
+ */
+function sanitizeUrl(url) {
+  if (!url) return '';
+  try {
+    const parsed = new URL(url, window.location.origin);
+    if (!['http:', 'https:'].includes(parsed.protocol)) return '';
+    return url;
+  } catch {
+    return '';
+  }
 }
 
 // ============================================
@@ -439,7 +391,10 @@ function renderPopupContent(content, type, customStyle = {}) {
       'height': style.imageHeight,
       'object-fit': style.imageFit
     });
-    html += `<img src="${escapeHtml(image)}" alt="" class="te-popup-image" style="${imageStyle}">`;
+    const safeImage = sanitizeUrl(image);
+    if (safeImage) {
+      html += `<img src="${escapeHtml(safeImage)}" alt="" class="te-popup-image" style="${imageStyle}">`;
+    }
   }
 
   // 콘텐츠 영역
@@ -467,7 +422,8 @@ function renderPopupContent(content, type, customStyle = {}) {
 
     if (secondaryButton) {
       const tag = secondaryButtonUrl ? 'a' : 'button';
-      const href = secondaryButtonUrl ? ` href="${escapeHtml(secondaryButtonUrl)}" target="_blank"` : '';
+      const safeSecondaryUrl = sanitizeUrl(secondaryButtonUrl);
+      const href = safeSecondaryUrl ? ` href="${escapeHtml(safeSecondaryUrl)}" target="_blank"` : '';
       const btnStyle = buildInlineStyle({
         'background-color': style.secondaryColor
       });
@@ -475,8 +431,9 @@ function renderPopupContent(content, type, customStyle = {}) {
     }
 
     if (primaryButton) {
-      const tag = primaryButtonUrl ? 'a' : 'button';
-      const href = primaryButtonUrl ? ` href="${escapeHtml(primaryButtonUrl)}" target="_blank"` : '';
+      const safePrimaryUrl = sanitizeUrl(primaryButtonUrl);
+      const tag = safePrimaryUrl ? 'a' : 'button';
+      const href = safePrimaryUrl ? ` href="${escapeHtml(safePrimaryUrl)}" target="_blank"` : '';
       const btnStyle = buildInlineStyle({
         'background-color': style.primaryColor
       });
@@ -572,8 +529,9 @@ function createBanner(content, options) {
     html += `<span class="te-popup-body" style="${bodyStyle}">${escapeHtml(content.body)}</span>`;
   }
   if (content.primaryButton) {
-    const tag = content.primaryButtonUrl ? 'a' : 'button';
-    const href = content.primaryButtonUrl ? ` href="${escapeHtml(content.primaryButtonUrl)}" target="_blank"` : '';
+    const safeBannerUrl = sanitizeUrl(content.primaryButtonUrl);
+    const tag = safeBannerUrl ? 'a' : 'button';
+    const href = safeBannerUrl ? ` href="${escapeHtml(safeBannerUrl)}" target="_blank"` : '';
     const btnStyle = buildInlineStyle({
       'background-color': '#ffffff',
       'color': bannerBtnTextColor
@@ -735,19 +693,6 @@ function showPopup(triggerResult, options = {}) {
   // 팝업 타입 결정 (content 또는 userParams에서)
   const popupType = content.popupType || userParams.popupType || options.type || POPUP_TYPES.MODAL;
 
-  // 빈도 제한 확인
-  const limitOptions = {
-    maxDisplayCount: content.maxDisplayCount || userParams.maxDisplayCount || options.maxDisplayCount,
-    limitPeriod: content.limitPeriod || userParams.limitPeriod || options.limitPeriod
-  };
-
-  if (!canShowPopup(taskId, limitOptions)) {
-    if (window.trackingConfig?.debug?.showConsoleLogs) {
-      console.log(`⏸️ 팝업 빈도 제한으로 미표시: ${taskId}`);
-    }
-    return null;
-  }
-
   // 스타일 삽입
   injectStyles();
 
@@ -798,9 +743,6 @@ function showPopup(triggerResult, options = {}) {
       closePopup(popupId, 'auto_close');
     }, autoCloseDelay);
   }
-
-  // 노출 이력 저장
-  savePopupHistory(taskId);
 
   // 노출 이벤트 전송
   if (opsProperties && window.TDAnalytics) {

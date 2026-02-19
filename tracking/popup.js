@@ -100,14 +100,3 @@ export function initPopupTracking() {
     });
   }
 
-export function trackPopup() {
-  document.addEventListener('click', (event) => {
-    if (event.target.classList.contains('popup-open')) {
-      window.thinkingdata.track('popup_open', { popup_id: event.target.id });
-    }
-    if (event.target.classList.contains('popup-close')) {
-      window.thinkingdata.track('popup_close', { popup_id: event.target.id });
-    }
-  });
-  trackingLog('✅ 팝업 트래킹 활성화');
-}
