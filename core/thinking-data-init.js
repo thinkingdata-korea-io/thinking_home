@@ -421,13 +421,4 @@ function getPageInfo() {
   };
 }
 
-// Node.js 환경에서 사용할 수 있도록 export
-if (typeof module !== "undefined" && module.exports) {
-  module.exports = {
-    initSDK,
-    isSDKInitialized,
-    getPageInfo,
-  };
-}
-
 export { initSDK, isSDKInitialized };

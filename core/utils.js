@@ -656,7 +656,19 @@ function checkAutomationIndicators(botInfo) {
   
   AUTOMATION_INDICATORS.forEach(indicator => {
     try {
-      if (!eval(indicator)) {
+      const parts = indicator.split('&&').map(p => p.trim());
+      let result = true;
+      for (const part of parts) {
+        const props = part.split('.').map(p => p.trim());
+        let obj = window;
+        for (const prop of props) {
+          if (prop === 'window') continue;
+          obj = obj?.[prop];
+          if (obj === undefined) { obj = undefined; break; }
+        }
+        if (!obj) { result = false; break; }
+      }
+      if (!result) {
         automationScore++;
       }
     } catch (e) {

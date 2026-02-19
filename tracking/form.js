@@ -568,7 +568,8 @@ function initIframeFormTracking() {
 
   // 1. salesmap.kr postMessage 리스너 (제출 관련 메시지만 필터링)
   window.addEventListener("message", function (event) {
-    if (!event.origin.includes("salesmap.kr")) return;
+    const ALLOWED_ORIGINS = ['https://salesmap.kr', 'https://www.salesmap.kr'];
+    if (!ALLOWED_ORIGINS.some(origin => event.origin === origin || event.origin.endsWith('.salesmap.kr'))) return;
 
     trackingLog("📝 salesmap 메시지 수신:", event.data);
 

@@ -457,7 +457,10 @@ function setupSessionEndTracking() {
  * 세션 ID 생성
  */
 function generateSessionId() {
-  return Date.now(); // Epoch 시간 사용
+  const timestamp = Date.now();
+  const array = new Uint32Array(1);
+  crypto.getRandomValues(array);
+  return `${timestamp}-${array[0].toString(36)}`;
 }
 
 // 캐시된 값들 (성능 최적화)
