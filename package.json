@@ -5,7 +5,9 @@
   "main": "main.js",
   "scripts": {
     "start": "node main.js",
-    "test": "node test-connection.js",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:connection": "node test-connection.js",
     "gsc:yesterday": "node gsc-collector.js --mode daily --days 1",
     "gsc:last-3-days": "node gsc-collector.js --mode daily --days 3",
     "gsc:last-week": "node gsc-collector.js --mode daily --days 7",
@@ -14,13 +16,14 @@
     "setup-cron": "chmod +x scripts/setup-cron.sh && ./scripts/setup-cron.sh"
   },
   "dependencies": {
-    "googleapis": "^128.0.0",
     "axios": "^1.6.0",
-    "node-cron": "^3.0.3",
-    "express": "^4.18.2"
+    "express": "^4.18.2",
+    "googleapis": "^128.0.0",
+    "node-cron": "^3.0.3"
   },
   "devDependencies": {
-    "dotenv": "^16.3.1"
+    "dotenv": "^16.3.1",
+    "vitest": "^4.0.18"
   },
   "keywords": [
     "google-search-console",
