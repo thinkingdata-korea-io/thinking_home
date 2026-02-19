@@ -245,9 +245,7 @@ function initPopupModule(config) {
     window.TEPopup.init({
       autoRegister: popupConfig.autoRegister !== false,
       showAllTriggers: popupConfig.showAllTriggers || false,
-      type: popupConfig.defaultType || 'modal',
-      maxDisplayCount: popupConfig.maxDisplayCount,
-      limitPeriod: popupConfig.limitPeriod
+      type: popupConfig.defaultType || 'modal'
     });
 
     if (window.trackingConfig?.debug?.showConsoleLogs) {
