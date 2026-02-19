@@ -44,7 +44,6 @@ jobs:
       run: |
         mkdir -p credentials
         echo '${{ secrets.GOOGLE_APPLICATION_CREDENTIALS_JSON }}' > credentials/service-account-key.json
-        echo '${{ secrets.GOOGLE_APPLICATION_CREDENTIALS_JSON }}' > credentials/google-search-console.json
         echo "GOOGLE_APPLICATION_CREDENTIALS=$PWD/credentials/service-account-key.json" >> $GITHUB_ENV
         echo "✅ Google Service Account 설정 완료"
         
@@ -113,4 +112,8 @@ jobs:
           logs/
         retention-days: 30
         
-    # Slack 알림 관련 step 전체 삭제 
+    - name: 🧹 Cleanup credentials
+      if: always()
+      run: |
+        rm -rf credentials/
+        echo "✅ 인증 파일 정리 완료"

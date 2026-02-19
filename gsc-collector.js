@@ -118,7 +118,7 @@ async function main() {
 
         // 4. Search Console Tracker 초기화
         const tracker = new SearchConsoleTracker({
-            credentialsPath: join(__dirname, 'credentials', 'google-search-console.json'),
+            credentialsPath: join(__dirname, 'credentials', 'service-account-key.json'),
             siteUrl: siteUrl,
             thinkingData: config.thinkingData
         });
