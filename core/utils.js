@@ -1045,26 +1045,25 @@ export function sendPendingEvents() {
       return false;
     }
     
+    const failedEvents = [];
     let successCount = 0;
-    let failCount = 0;
-    
+
     pendingEvents.forEach(event => {
       try {
         window.te.track(event.eventName, event.properties);
         successCount++;
       } catch (error) {
         console.warn(`임시 이벤트 전송 실패 (${event.eventName}):`, error);
-        failCount++;
+        failedEvents.push(event);
       }
     });
-    
-    // 성공한 이벤트들은 제거
+
+    // 실패한 이벤트만 남기고 나머지 제거
     if (successCount > 0) {
-      const remainingEvents = pendingEvents.slice(successCount);
-      localStorage.setItem('te_pending_events', JSON.stringify(remainingEvents));
+      localStorage.setItem('te_pending_events', JSON.stringify(failedEvents));
       
       if (window.trackingLog) {
-        window.trackingLog(`📤 임시 이벤트 전송 완료: ${successCount}개 성공, ${failCount}개 실패`);
+        window.trackingLog(`📤 임시 이벤트 전송 완료: ${successCount}개 성공, ${failedEvents.length}개 실패`);
       }
     }
     

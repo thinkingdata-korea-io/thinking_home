@@ -22,24 +22,29 @@
 
 // 브라우저 환경에서 환경변수 처리
 function getEnvVar(name, defaultValue) {
+  // 브라우저 환경이 아니면 기본값 반환
+  if (typeof window === 'undefined' || typeof document === 'undefined') {
+    return defaultValue;
+  }
+
   // 1. window 객체에 직접 설정된 환경변수 확인
   if (window[name]) {
     return window[name];
   }
-  
+
   // 2. meta 태그에서 환경변수 확인
   const safeName = typeof CSS !== 'undefined' && CSS.escape ? CSS.escape(name) : name.replace(/[^\w-]/g, '');
   const metaTag = document.querySelector(`meta[name="${safeName}"]`);
   if (metaTag && metaTag.getAttribute('content')) {
     return metaTag.getAttribute('content');
   }
-  
+
   // 3. data 속성에서 환경변수 확인
   const dataElement = document.querySelector(`[data-${name.toLowerCase()}]`);
   if (dataElement) {
     return dataElement.getAttribute(`data-${name.toLowerCase()}`);
   }
-  
+
   // 4. 기본값 반환
   return defaultValue;
 }
@@ -47,7 +52,7 @@ function getEnvVar(name, defaultValue) {
 const config = {
   // ThinkingData SDK 설정
   thinkingData: {
-    appId: getEnvVar('TE_APP_ID', '79ed7051fc51493798b16328c0ebd0bc'),
+    appId: getEnvVar('TE_APP_ID', ''),
     serverUrl: getEnvVar('TE_SERVER_URL', 'https://te-receiver-naver.thinkingdata.kr/sync_js'),
     showLog: false, // SDK 로그 활성화 (개발/운영 환경에 따라 조정)
     batch: false, // 🚀 실시간 전송으로 변경 (기본값: true)
@@ -124,7 +129,8 @@ const config = {
 // 설정 유효성 검사
 function validateConfig() {
   if (!config.thinkingData.appId) {
-    console.warn('⚠️ ThinkingData APP_ID가 설정되지 않았습니다.');
+    console.error('❌ ThinkingData APP_ID가 설정되지 않았습니다. 환경변수 TE_APP_ID를 설정해주세요.');
+    return false;
   }
   
   if (!config.thinkingData.serverUrl) {

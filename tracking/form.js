@@ -207,6 +207,37 @@ export function initFormTracking() {
     }
   }
 
+  // 필드 상호작용 이벤트 리스너 등록 (initFormTracking 내부에서만 실행)
+  document.addEventListener("input", function (event) {
+    const field = event.target;
+    if (field.tagName === "INPUT" || field.tagName === "TEXTAREA") {
+      trackFieldInteraction(field, "input");
+    }
+  });
+
+  document.addEventListener("focusin", function (event) {
+    const field = event.target;
+    if (field.tagName === "INPUT" || field.tagName === "TEXTAREA") {
+      trackFieldInteraction(field, "focus");
+    }
+  });
+
+  document.addEventListener("focusout", function (event) {
+    const field = event.target;
+    if (field.tagName === "INPUT" || field.tagName === "TEXTAREA") {
+      trackFieldInteraction(field, "blur");
+    }
+  });
+
+  // iframe 폼 추적 초기화
+  if (document.readyState === "loading") {
+    document.addEventListener("DOMContentLoaded", initIframeFormTracking);
+  } else {
+    initIframeFormTracking();
+  }
+
+  trackingLog("✅ 폼 추적 초기화 완료");
+
   tryInit();
 }
 
@@ -343,30 +374,7 @@ function getLengthCategory(length) {
   return "very_long";
 }
 
-// 🎯 최적화된 이벤트 리스너들
-document.addEventListener("input", function (event) {
-  const field = event.target;
-  if (field.tagName === "INPUT" || field.tagName === "TEXTAREA") {
-    trackFieldInteraction(field, "input");
-  }
-});
-
-// 🎯 통합된 포커스 추적 (최적화된 시스템과 연동)
-document.addEventListener("focusin", function (event) {
-  const field = event.target;
-  if (field.tagName === "INPUT" || field.tagName === "TEXTAREA") {
-    trackFieldInteraction(field, "focus");
-  }
-});
-
-document.addEventListener("focusout", function (event) {
-  const field = event.target;
-  if (field.tagName === "INPUT" || field.tagName === "TEXTAREA") {
-    trackFieldInteraction(field, "blur");
-  }
-});
-
-trackingLog("✅ 폼 추적 초기화 완료");
+// 필드 상호작용 이벤트 리스너는 initFormTracking() 내부에서 등록됨
 
 // 추적 대상 폼인지 확인 (모든 폼 자동 추적, data-no-track으로 제외 가능)
 function isThinkingDataForm(form) {
@@ -747,12 +755,8 @@ function initIframeFormTracking() {
   });
 }
 
-// iframe 폼 추적 초기화 (DOM 로드 후)
-if (document.readyState === "loading") {
-  document.addEventListener("DOMContentLoaded", initIframeFormTracking);
-} else {
-  initIframeFormTracking();
-}
+// iframe 폼 추적은 initFormTracking() 호출 시 내부에서 초기화됨
+// 직접 호출 제거 - config.modules.form 설정에 따라 제어
 
 // 디버깅용 함수
 function debugFormTracking() {

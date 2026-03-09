@@ -3,27 +3,13 @@
  * 설정을 기반으로 SDK를 초기화하고 공통 속성을 설정합니다.
  */
 
-// 상수 정의
-const BOT_KEYWORDS = [
-  "bot", "crawler", "spider", "scraper", "webdriver", 
-  "selenium", "puppeteer", "playwright", "headless",
-  "chatgpt", "claude", "bard", "copilot", "perplexity"
-];
-
-const BROWSER_PATTERNS = [
-  { name: "Chrome", pattern: "Chrome", versionPattern: /Chrome\/(\d+)/ },
-  { name: "Firefox", pattern: "Firefox", versionPattern: /Firefox\/(\d+)/ },
-  { name: "Safari", pattern: "Safari", exclude: "Chrome", versionPattern: /Version\/(\d+)/ },
-  { name: "Edge", pattern: "Edge", versionPattern: /Edge\/(\d+)/ },
-  { name: "Internet Explorer", pattern: ["MSIE", "Trident"], versionPattern: /(MSIE|rv:)\s*(\d+)/ }
-];
+import { detectBot, getBrowserInfo } from './utils.js';
 
 const MOBILE_PATTERNS = /mobile|android|iphone|ipod|blackberry|iemobile|opera mini/i;
 const TABLET_PATTERNS = /tablet|ipad/i;
 
 // 캐시된 값들
 let cachedUserAgent = null;
-let cachedBrowserInfo = null;
 let cachedDeviceInfo = null;
 
 // 유틸리티 함수들
@@ -53,48 +39,7 @@ const utils = {
   }
 };
 
-// 봇 감지 함수
-function detectBot() {
-  // 캐시된 사용자 에이전트 사용
-  const userAgent = cachedUserAgent || (cachedUserAgent = navigator.userAgent.toLowerCase());
-  
-  // 키워드 기반 감지
-  const hasBotKeywords = BOT_KEYWORDS.some(keyword => userAgent.includes(keyword));
-  
-  // WebDriver 속성 감지
-  const hasWebDriver = navigator.webdriver === true;
-  
-  return hasBotKeywords || hasWebDriver;
-}
-
-// 브라우저 정보 감지 (캐싱 적용)
-function getBrowserInfo() {
-  if (cachedBrowserInfo) {
-    return cachedBrowserInfo;
-  }
-
-  const userAgent = cachedUserAgent || (cachedUserAgent = navigator.userAgent);
-  let browserName = "unknown";
-  let browserVersion = "unknown";
-
-  for (const browser of BROWSER_PATTERNS) {
-    const patterns = Array.isArray(browser.pattern) ? browser.pattern : [browser.pattern];
-    const hasPattern = patterns.some(pattern => userAgent.includes(pattern));
-    const hasExclude = browser.exclude && userAgent.includes(browser.exclude);
-
-    if (hasPattern && !hasExclude) {
-      browserName = browser.name;
-      const versionMatch = userAgent.match(browser.versionPattern);
-      if (versionMatch) {
-        browserVersion = versionMatch[1] || versionMatch[2] || "unknown";
-      }
-      break;
-    }
-  }
-
-  cachedBrowserInfo = { name: browserName, version: browserVersion };
-  return cachedBrowserInfo;
-}
+// detectBot, getBrowserInfo는 utils.js에서 import
 
 // 디바이스 타입 감지 (캐싱 적용)
 function getDeviceInfo() {

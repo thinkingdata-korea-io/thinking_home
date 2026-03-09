@@ -13,7 +13,7 @@
 let isOperateSDKInitialized = false;
 
 // 트리거 결과 핸들러 저장소
-const triggerHandlers = [];
+let triggerHandlers = [];
 
 /**
  * 운영 SDK 존재 여부 확인
@@ -95,10 +95,7 @@ function addTriggerHandler(handler) {
  * @param {Function} handler - 제거할 핸들러 함수
  */
 function removeTriggerHandler(handler) {
-  const index = triggerHandlers.indexOf(handler);
-  if (index > -1) {
-    triggerHandlers.splice(index, 1);
-  }
+  triggerHandlers = triggerHandlers.filter(h => h !== handler);
 }
 
 /**

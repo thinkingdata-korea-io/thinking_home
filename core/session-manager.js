@@ -57,6 +57,7 @@ let interactionCount = 0;
 let lastActivityTime = Date.now();
 let sessionTimeout = SESSION_CONFIG.DEFAULT_TIMEOUT;
 let isSessionTrackingEnabled = true;
+let sessionTimeoutIntervalId = null;
 
 // 세션 이벤트 추적 (중복 전송 방지)
 const sessionEventsTracked = {
@@ -178,7 +179,7 @@ function initializeSession(config = {}) {
         }
 
         // 세션 타임아웃 체크 주기 설정
-        setInterval(checkSessionTimeout, SESSION_CONFIG.TIMEOUT_CHECK_INTERVAL);
+        sessionTimeoutIntervalId = setInterval(checkSessionTimeout, SESSION_CONFIG.TIMEOUT_CHECK_INTERVAL);
 
         // 페이지 종료 시 세션 종료 이벤트 전송
         setupSessionEndTracking();
@@ -388,7 +389,13 @@ function endSession(reason = 'page_exit') {
   updateSessionStatistics(sessionDuration);
   
   sessionEventsTracked.session_end = true;
-  
+
+  // 타임아웃 체크 인터벌 정리
+  if (sessionTimeoutIntervalId !== null) {
+    clearInterval(sessionTimeoutIntervalId);
+    sessionTimeoutIntervalId = null;
+  }
+
   trackingLog('🔄 세션 종료:', {
     sessionId,
     duration: sessionDuration + '초',

@@ -11,7 +11,7 @@ function getEnvVar(name, defaultValue) {
 const config = {
   // ThinkingData SDK 설정 (GitHub Actions용)
   thinkingData: {
-    appId: getEnvVar('TE_APP_ID', '79ed7051fc51493798b16328c0ebd0bc'),
+    appId: getEnvVar('TE_APP_ID', ''),
     serverUrl: getEnvVar('TE_SERVER_URL', 'https://te-receiver-naver.thinkingdata.kr/sync_json'),
     showLog: false,
     autoTrack: {
@@ -57,7 +57,8 @@ function validateConfig() {
   });
   
   if (!config.thinkingData.appId) {
-    console.warn('⚠️ ThinkingData APP_ID가 설정되지 않았습니다.');
+    console.error('❌ ThinkingData APP_ID가 설정되지 않았습니다. 환경변수 TE_APP_ID를 설정해주세요.');
+    return false;
   }
   
   if (!config.thinkingData.serverUrl) {
