@@ -11,7 +11,7 @@ function getEnvVar(name, defaultValue) {
 const config = {
   // ThinkingData SDK 설정 (GitHub Actions용)
   thinkingData: {
-    appId: getEnvVar('TE_APP_ID', ''),
+    appId: getEnvVar('TE_APP_ID', '79ed7051fc51493798b16328c0ebd0bc'),
     serverUrl: getEnvVar('TE_SERVER_URL', 'https://te-receiver-naver.thinkingdata.kr/sync_json'),
     showLog: false,
     autoTrack: {
